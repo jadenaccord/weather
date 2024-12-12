@@ -8,6 +8,11 @@ import (
 	"os"
 )
 
+type Coordinates []struct {
+	Latitude  float64 `json:"lat"`
+	Longitude float64 `json:"lon"`
+}
+
 type WeatherResponse struct {
 	Main struct {
 		Temp     float64 `json:"temp"`
@@ -32,29 +37,45 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Get longitude and latitude of city via OpenWeatherMap API
-
+	// Get API key from environment variables
 	apiKey := os.Getenv("OPENWEATHERMAP_API_KEY")
 	if apiKey == "" {
 		http.Error(w, "API key not configured", http.StatusInternalServerError)
 		return
 	}
 
-	latitude := 51.509865
-	longitude := -0.118092
+	// TODO: Get longitude and latitude of city via OpenWeatherMap API
+	geoURL := fmt.Sprintf("https://api.openweathermap.org/geo/1.0/direct?q=%s&limit=1&appid=%s", city, apiKey)
+	geoResp, geoErr := http.Get(geoURL)
+	if geoErr != nil {
+		http.Error(w, "Failed to fetch geodata", http.StatusInternalServerError)
+		return
+	}
+	defer geoResp.Body.Close()
 
-	// TODO: send request with longitude and latitude
-	url := fmt.Sprintf("https://api.openweathermap.org/data/3.0/onecall?lat=%s&lon=%s&exclude=minutely,hourly,daily,alerts&appid=%s&units=metric", latitude, longitude, apiKey)
+	var coordinates Coordinates
+	if err := json.NewDecoder(geoResp.Body).Decode(&coordinates); err != nil {
+		http.Error(w, "Failed to parse geodata", http.StatusInternalServerError)
+		return
+	}
 
-	resp, err := http.Get(url)
-	if err != nil {
+	if len(coordinates) == 0 {
+		http.Error(w, "Location not found", http.StatusNotFound)
+		return
+	}
+
+	// Send weather request with longitude and latitude
+	weatherURL := fmt.Sprintf("https://api.openweathermap.org/data/3.0/onecall?lat=%s&lon=%s&exclude=minutely,hourly,daily,alerts&appid=%s&units=metric", coordinates[0].Latitude, coordinates[0].Longitude, apiKey)
+
+	weatherResp, weatherErr := http.Get(weatherURL)
+	if weatherErr != nil {
 		http.Error(w, "Failed to fetch weather", http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
+	defer weatherResp.Body.Close()
 
 	var weather WeatherResponse
-	if err := json.NewDecoder(resp.Body).Decode(&weather); err != nil {
+	if err := json.NewDecoder(weatherResp.Body).Decode(&weather); err != nil {
 		http.Error(w, "Failed to parse weather data", http.StatusInternalServerError)
 		return
 	}
