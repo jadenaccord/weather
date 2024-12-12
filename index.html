@@ -1,29 +1,68 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <title>Weather App</title>
+</head>
 <body>
-    City: <input id="city" type="text">
+    <input id="city" type="text">
     <button onclick="findWeather()">Get Weather</button>
     <div id="result"></div>
 
     <script>
-        function findWeather() {
-            var city = document.getElementById('city').value;
+        // Function to update page state
+        function updatePage(city) {
+            // Update URL without page reload
+            history.pushState({city: city}, '', `/?city=${encodeURIComponent(city)}`);
+            findWeather(city);
+        }
+
+        // Function to find weather
+        function findWeather(cityParam) {
+            // Use input field or URL parameter
+            var city = cityParam || document.getElementById('city').value;
             var resultDiv = document.getElementById('result');
             
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'https://api.openweathermap.org/data/2.5/weather?q=' + city + '&appid=YOUR_API_KEY&units=metric');
-            
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    var data = JSON.parse(xhr.responseText);
-                    resultDiv.innerHTML = 'Temperature: ' + data.main.temp + '°C<br>Humidity: ' + data.main.humidity + '%';
-                } else {
-                    resultDiv.innerHTML = 'Error finding weather';
-                }
-            };
-            
-            xhr.send();
+            fetch(`http://localhost:8080/weather?city=${encodeURIComponent(city)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Weather data not found');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    resultDiv.innerHTML = `
+                        City: ${data.name}<br>
+                        Temperature: ${data.main.temp}°C<br>
+                        Humidity: ${data.main.humidity}%
+                    `;
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = 'Error: ' + error.message;
+                });
         }
+
+        // Handle browser navigation
+        window.addEventListener('popstate', function(event) {
+            if (event.state && event.state.city) {
+                findWeather(event.state.city);
+            }
+        });
+
+        // Check for city in URL on page load
+        window.onload = function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            var cityFromUrl = urlParams.get('city');
+            if (cityFromUrl) {
+                document.getElementById('city').value = cityFromUrl;
+                findWeather(cityFromUrl);
+            }
+        };
+
+        // Modify button to use updatePage
+        document.querySelector('button').onclick = function() {
+            var city = document.getElementById('city').value;
+            updatePage(city);
+        };
     </script>
 </body>
 </html>
