@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<body>
+    City: <input id="city" type="text">
+    <button onclick="findWeather()">Get Weather</button>
+    <div id="result"></div>
+
+    <script>
+        function findWeather() {
+            var city = document.getElementById('city').value;
+            var resultDiv = document.getElementById('result');
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://api.openweathermap.org/data/2.5/weather?q=' + city + '&appid=YOUR_API_KEY&units=metric');
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var data = JSON.parse(xhr.responseText);
+                    resultDiv.innerHTML = 'Temperature: ' + data.main.temp + '°C<br>Humidity: ' + data.main.humidity + '%';
+                } else {
+                    resultDiv.innerHTML = 'Error finding weather';
+                }
+            };
+            
+            xhr.send();
+        }
+    </script>
+</body>
+</html>
